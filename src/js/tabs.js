@@ -33,10 +33,10 @@ define([
 		div.className = "pocketgl-tabs";
 		var ul = document.createElement("ul");
 
-		this.tabIDs = ["render", "vertex_shader", "fragment_shader"];
+		this.tabIDs = ["render", "vertex_shader", "fragment_shader", "params"];
 		var tabs = [];
 
-		for(var i=0; i<3; i++) {
+		for(var i=0; i < this.tabIDs.length; i++) {
 			if(!addVertex && i == 1) continue;
 
 			var li = document.createElement("li");
@@ -83,9 +83,9 @@ define([
 	}
 
 	PocketGLTabs.prototype.setTabNames = function(size) {
-		var tabNamesBig = ["Render", "Vertex Shader", "Fragment Shader"];
-		var tabNamesSmall = ["Render", "Vertex", "Fragment"];
-		var tabNamesXSmall = ["Rnd", "Vtx", "Frag"];
+		var tabNamesBig = ["Render", "Vertex Shader", "Fragment Shader", "Parameters"];
+		var tabNamesSmall = ["Render", "Vertex", "Fragment", "Params"];
+		var tabNamesXSmall = ["Rnd", "Vtx", "Frag", "Par"];
 		var tabNames;
 
 		tabNames = size < 340 ? tabNamesXSmall : size < 450 ? tabNamesSmall : tabNamesBig;

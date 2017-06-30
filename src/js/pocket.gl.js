@@ -56,7 +56,7 @@ define([
 			var scope = this;
 
 			// all the views
-			this.containerNames = ["render", "errors", "loading", "vertex_shader", "fragment_shader"];
+			this.containerNames = ["render", "errors", "loading", "vertex_shader", "fragment_shader", "params"];
 
 			if(params == undefined) params = {};
 
@@ -494,6 +494,9 @@ define([
 			if(this.currentView == "fragment_shader" && this.editorFragment) 
 				text = this.editorFragment.getValue();
 
+			if(this.currentView == "params" && this.editorParams) 
+				text = this.editorParams.getValue();
+
 			if(text == undefined) return;
 
 			return jsFormat ? Utils.toJSString(text) : text;
@@ -654,6 +657,19 @@ define([
 						this.copyButtons.style.display = "block";
 					break;
 
+				case "params":
+					if(this.editorParams == undefined) {
+						this.editorParams = this.createEditor(this.containers["params"], JSON.stringify(this.params.uniforms, null, 4));
+						if(this.params.fluidWidth) this.containers[view].style.width = "";
+					}
+	
+					if(!Utils.mobileAndTabletcheck())
+						this.editorParams.focus();
+
+					if(this.copyButtons)
+						this.copyButtons.style.display = "block";
+					break;
+                
 				case "loading":
 					if(this.tabs != undefined) this.tabs.disable();
 					break;
