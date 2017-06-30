@@ -77161,6 +77161,16 @@ define('app/pocket.gl',[
 				this.currentMaterial.setValues( {
 					fragmentShader: this.editorFragment.getValue() });
 
+            if(this.editorParams != undefined) {
+                try {
+                    this.params.uniforms = JSON.parse(this.editorParams.getValue());
+                    this.paramJsonErrorLog = "";
+                } catch(e) {
+                    console.error("Exception parsing JSON: " + e.message)
+                    this.paramJsonErrorLog = e.message;
+                }
+            }
+
 			this.currentMaterial.needsUpdate = true;
 			
 			this.render();
@@ -77194,24 +77204,37 @@ define('app/pocket.gl',[
 			var programLog = "";
 			var vertexLog = "";
 			var fragmentLog = "";
+            var paramLog = "";
 
-			if(this.currentMaterial.program != undefined && this.currentMaterial.program.diagnostics != undefined) {
+			if(this.currentMaterial.program != undefined && this.currentMaterial.program.diagnostics != undefined)
+            {
 				var stack = new Error().stack;
 				console.log( stack );
 
 				programLog = this.currentMaterial.program.diagnostics.programLog.trim();
 				fragmentLog = this.currentMaterial.program.diagnostics.fragmentShader.log.trim();
 				vertexLog = this.currentMaterial.program.diagnostics.vertexShader.log.trim();
-				
+
 				// Fix for strange string value on chrome 57.0.2987.133
 				if(programLog.length==1 && programLog.charCodeAt(0) == 0) programLog = "";
 			}
 
-			if(fragmentLog != "" || vertexLog != "")
+            if (this.paramJsonErrorLog.length > 0)
+            {
+				var stack = new Error().stack;
+				console.log( stack );
+                
+                paramLog = this.paramJsonErrorLog.trim();
+            }
+               
+			if(fragmentLog != "" || vertexLog != "" || paramLog != "")
 			{
-				// Subtracting from errors line numbers the lines of code included by three.js into the shader programs
-				vertexLog   = this.adjustLineNumbers(vertexLog, Utils.countLines(this.currentMaterial.program.diagnostics.vertexShader.prefix));
-				fragmentLog = this.adjustLineNumbers(fragmentLog, Utils.countLines(this.currentMaterial.program.diagnostics.fragmentShader.prefix));
+                if (fragmentLog != "" || vertexLog != "")
+                {
+				    // Subtracting from errors line numbers the lines of code included by three.js into the shader programs
+				    vertexLog   = this.adjustLineNumbers(vertexLog, Utils.countLines(this.currentMaterial.program.diagnostics.vertexShader.prefix));
+				    fragmentLog = this.adjustLineNumbers(fragmentLog, Utils.countLines(this.currentMaterial.program.diagnostics.fragmentShader.prefix));
+                }
 
 				errorMessage = programLog + "<br/><br/>";
 
@@ -77221,6 +77244,9 @@ define('app/pocket.gl',[
 				if(fragmentLog != "") 
 					errorMessage += "Fragment Shader errors:<br/>" + fragmentLog;
 
+				if(paramLog != "") 
+					errorMessage += "Parameter errors:<br/>" + paramLog;
+                
 				this.switchView("errors");
 
 				this.errorStop();
@@ -77297,6 +77323,8 @@ define('app/pocket.gl',[
 				this.uniforms.resolution = {type: "v2", value: new THREE.Vector2()};
 				this.uniforms.mouse = {type: "v4", value: new THREE.Vector4()};
 			}
+
+            this.paramJsonErrorLog = "";
 
 			function addUniform(u) {
 				if(u.type == "boolean")
