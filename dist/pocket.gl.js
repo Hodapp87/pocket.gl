@@ -77153,6 +77153,7 @@ define('app/pocket.gl',[
 		}
 
 		PocketGL.prototype.updateShadersFromEditor = function() {
+
 			if(this.editorVertex != undefined)
 				this.currentMaterial.setValues( {
 					vertexShader: this.editorVertex.getValue()});
@@ -77165,10 +77166,40 @@ define('app/pocket.gl',[
                 try {
                     this.params.uniforms = JSON.parse(this.editorParams.getValue());
                     this.paramJsonErrorLog = "";
+
+                    for(var i in this.GUIControllers) {
+                        var c = this.GUIControllers[i];
+                        
+                        c.parent.remove(c.controller);
+                    }
+                    this.GUIControllers = {};
+
+				    for(var i in this.params.uniforms) {
+					    var u = this.params.uniforms[i];
+                        
+					    if(u.length != undefined) {
+                            // folder
+						    for(var j=1; j<u.length; j++) {
+                                this.addUniform(u[j]);
+                                this.addGuiParams(u[j]);
+                                this.addGuiData(u[j], this.gui);
+                            }
+					    } else {
+						    this.addUniform(u);
+                            this.addGuiParams(u);
+                            this.addGuiData(u, this.gui);
+                       }
+				    }
+                    
                 } catch(e) {
-                    console.error("Exception parsing JSON: " + e.message)
-                    this.paramJsonErrorLog = e.message;
+                    if (e instanceof SyntaxError) {
+                        console.error("Exception parsing JSON: " + e.message)
+                        this.paramJsonErrorLog = e.message;
+                    } else {
+                        throw e;
+                    }
                 }
+                
             }
 
 			this.currentMaterial.needsUpdate = true;
@@ -77297,6 +77328,87 @@ define('app/pocket.gl',[
 			this.mouseDragging = false;
 		}
 
+        PocketGL.prototype.addUniform = function(u) {
+
+            if (this.uniforms[u.name] != undefined) {
+                var oldVal = this.uniforms[u.name].value;
+                var hasVal = true;
+            } else {
+                hasVal = false;
+            }
+            
+			if(u.type == "boolean") {
+				this.uniforms[u.name] = {
+					type: "f",
+					value: hasVal ? oldVal : (u.type ? 1.0 : 0.0)
+				};
+                u.value = this.uniforms[u.name].value;
+			} else if(u.type == "float") {
+				this.uniforms[u.name] = {
+					type: "f",
+					value: hasVal ? oldVal : u.value
+				};
+                u.value = this.uniforms[u.name].value;
+		    } else if(u.type == "integer") {
+			    this.uniforms[u.name] = {
+					type: "f",
+					value: hasVal ? oldVal : parseInt(u.value)
+				};
+                u.value = this.uniforms[u.name].value;
+            } else if(u.type == "color") {
+				this.uniforms[u.name] = {
+					type: "c",
+					value: hasVal ? oldVal : (new THREE.Color(u.value))
+				};
+                u.value = this.uniforms[u.name].value;
+			}
+
+		}
+        
+        PocketGL.prototype.addGuiData = function(u, gui) {
+			var scope = this;
+            
+			if(u.type == "float") {
+				var ctl = gui.add(this.GUIParams, u.GUIName, u.min, u.max);
+                ctl.step((u.max - u.min)/100).onChange(function() {
+					scope.render();
+				});
+			} else if(u.type == "integer") {
+				var ctl = gui.add(this.GUIParams, u.GUIName, parseInt(u.min), parseInt(u.max));
+                ctl.step(1).onChange(function() {
+					scope.render();
+				});
+			} else if(u.type == "color") {
+				var ctl = gui.addColor(this.GUIParams, u.GUIName);
+                ctl.onChange(function() {
+					scope.render();
+				});
+			} else if(u.type == "boolean") {
+				var ctl = gui.add(this.GUIParams, u.GUIName);
+                ctl.onChange(function() {
+					scope.render();
+				});
+            }
+
+            if (ctl != undefined) {
+                this.GUIControllers[u.GUIName] = { controller: ctl, parent: gui };
+            }
+            
+		}
+
+
+        PocketGL.prototype.addGuiParams = function(u) {
+			if(u.type == "float" || u.type == "boolean") {
+				this.GUIParams[u.GUIName] = u.value;
+			}
+			else if(u.type == "color") {
+				this.GUIParams[u.GUIName] = u.value;
+			}
+			else if(u.type == "integer") {
+				this.GUIParams[u.GUIName] = parseInt(u.value);
+			}
+		}
+
 		PocketGL.prototype.init = function() {
 			var scope = this;
 
@@ -77326,38 +77438,16 @@ define('app/pocket.gl',[
 
             this.paramJsonErrorLog = "";
 
-			function addUniform(u) {
-				if(u.type == "boolean")
-					scope.uniforms[u.name] = {
-						type: "f",
-						value: u.type ? 1.0 : 0.0 
-					};
-				else if(u.type == "float")
-					scope.uniforms[u.name] = {
-						type: "f",
-						value: u.value
-					};
-				else if(u.type == "integer")
-					scope.uniforms[u.name] = {
-						type: "f",
-						value: parseInt(u.value)
-					};
-				else if(u.type == "color") {
-					scope.uniforms[u.name] = {
-						type: "c",
-						value: new THREE.Color(u.value)
-					};
-				}
-			}
+			this.GUIParams = { Mesh: 0 };
 
 			if(this.params.uniforms != undefined) {
 				for(var i in this.params.uniforms) {
 					var u = this.params.uniforms[i];
 
 					if(u.length != undefined) // folder
-						for(var j=1; j<u.length; j++) addUniform(u[j]);
+						for(var j=1; j<u.length; j++) this.addUniform(u[j]);
 					else
-						addUniform(u);
+						this.addUniform(u);
 				}
 			}
 
@@ -77476,32 +77566,19 @@ define('app/pocket.gl',[
 			if(this.tabs)
 				this.addCopyButtons();
 
-			this.addCopyright(this.containers.render);
+			//this.addCopyright(this.containers.render);
 
 			// GUI	
-			this.GUIParams = { Mesh: 0 };
-
-			function addGuiParams(u) {
-				if(u.type == "float" || u.type == "boolean") {
-					scope.GUIParams[u.GUIName] = u.value;
-				}
-				else if(u.type == "color") {
-					scope.GUIParams[u.GUIName] = u.value;
-				}
-				else if(u.type == "integer") {
-					scope.GUIParams[u.GUIName] = parseInt(u.value);
-				}
-			}
 
 			if(this.params.uniforms != undefined)
 				for(var i in this.params.uniforms) {
 					var u = this.params.uniforms[i];
 
 					if(u.length == undefined) { // Not an array
-						addGuiParams(u);
+						this.addGuiParams(u);
 					}
 					else { // It's a folder (array). Let's add all its elements.
-						for(var j=1; j<u.length; j++) addGuiParams(u[j]);
+						for(var j=1; j<u.length; j++) this.addGuiParams(u[j]);
 					}
 				}
 
@@ -77509,9 +77586,9 @@ define('app/pocket.gl',[
 			for(var i in this.params.meshes)
 				meshes[this.params.meshes[i].name] = i;
 
-			var gui = false;
+			this.gui = false;
 			if(this.params.meshes.length > 1 || this.params.uniforms != undefined) {
-				gui = new dat.GUI({ autoPlace: false });
+				this.gui = new dat.GUI({ autoPlace: false });
 				if(this.params.GUIClosed) gui.close();
 			}
 
@@ -77531,43 +77608,26 @@ define('app/pocket.gl',[
 				}
 			}
 
-			function addGuiData(u, gui) {
-				if(u.type == "float") 
-					gui.add(scope.GUIParams, u.GUIName, u.min, u.max).step((u.max - u.min)/100).onChange(function() {
-						scope.render();
-					});
-				if(u.type == "integer") 
-					gui.add(scope.GUIParams, u.GUIName, parseInt(u.min), parseInt(u.max)).step(1).onChange(function() {
-						scope.render();
-					});
-				else if(u.type == "color")
-					gui.addColor(scope.GUIParams, u.GUIName).onChange(function() {
-						scope.render();
-					});
-				else if(u.type == "boolean")
-					gui.add(scope.GUIParams, u.GUIName).onChange(function() {
-						scope.render();
-					});
-			}
+            this.GUIControllers = {}
 
 			for(var i in this.params.uniforms) {
 				var u = this.params.uniforms[i];
 
 				if(u.length != undefined) {
 					var folder = gui.addFolder(u[0].groupName);
-					for(var j=1; j<u.length; j++) addGuiData(u[j], folder);	
+					for(var j=1; j<u.length; j++) this.addGuiData(u[j], folder);	
 
 					if(u[0].opened) folder.open();
 				}
-				else addGuiData(u, gui);
+				else this.addGuiData(u, this.gui);
 			}
 
-			if(gui) {
+			if(this.gui) {
 				var guiContainer = document.createElement('div');
 				guiContainer.style.position = "absolute";
 				guiContainer.style.right = "0px";
 				guiContainer.style.top = "0px";
-				guiContainer.appendChild(gui.domElement);
+				guiContainer.appendChild(this.gui.domElement);
 				this.containers.render.appendChild(guiContainer);
 			}
 
