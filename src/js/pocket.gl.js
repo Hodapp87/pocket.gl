@@ -186,6 +186,23 @@ define([
                     }
                 }
 
+                params.fragmentShaderPreamble = "";
+				if(params.fragmentShaderPreambleFile != undefined) {
+					var loaderP = new THREE.FileLoader();
+					this.LoadingManager.addObject(loaderP);
+					loaderP.load( 
+						this.baseURL + params.fragmentShaderPreambleFile,
+						function(text) { params.fragmentShaderPreamble = text; scope.LoadingManager.onProgress(loaderP, 1); },
+						function ( xhr ) {
+							if ( xhr.lengthComputable ) {
+								var percentComplete = xhr.loaded / xhr.total;
+								scope.LoadingManager.onProgress(loaderP, percentComplete);
+							}
+						},
+						function(xhr) { scope.LoadingManager.onError(xhr); }
+					);
+				}
+
 				this.LoadingManager.setReady();
 			}
 			else {
@@ -912,8 +929,9 @@ define([
 
 			if(this.editorFragment != undefined)
 				this.currentMaterial.setValues( {
-					fragmentShader: params.fragmentShaderIncludes +
-                        this.editorFragment.getValue()
+					fragmentShader: params.fragmentShaderPreamble +
+                        this.editorFragment.getValue() +
+                        params.fragmentShaderIncludes
                 }
             );
 
@@ -1019,7 +1037,7 @@ define([
                 {
 				    // Subtracting from errors line numbers the lines of code included by three.js into the shader programs
 				    vertexLog   = this.adjustLineNumbers(vertexLog, Utils.countLines(this.currentMaterial.program.diagnostics.vertexShader.prefix));
-				    fragmentLog = this.adjustLineNumbers(fragmentLog, Utils.countLines(this.currentMaterial.program.diagnostics.fragmentShader.prefix) + Utils.countLines(params.fragmentShaderIncludes));
+				    fragmentLog = this.adjustLineNumbers(fragmentLog, Utils.countLines(this.currentMaterial.program.diagnostics.fragmentShader.prefix) + Utils.countLines(this.params.fragmentShaderPreamble) - 1);
                 }
 
 				errorMessage = programLog + "<br/><br/>";
@@ -1254,7 +1272,9 @@ define([
 				var material = new THREE.ShaderMaterial( {
 					uniforms: this.uniforms,
 					vertexShader: this.params.vertexShader,
-                    fragmentShader: this.params.fragmentShaderIncludes + this.params.fragmentShader,
+                    fragmentShader: this.params.fragmentShaderPreamble +
+                        this.params.fragmentShader +
+                        this.params.fragmentShaderIncludes,
 					extensions: {
 						derivatives: true,
 						shaderTextureLOD: true
