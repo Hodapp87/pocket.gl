@@ -156,6 +156,36 @@ define([
 					);
 				}
 
+                params.fragmentShaderIncludes = "";
+                if (params.fragmentShaderIncludeFiles != undefined) {
+
+                    var load_file = function(n) {
+                        var fname = params.fragmentShaderIncludeFiles[n];
+                        var loaderI = new THREE.FileLoader();
+                        scope.LoadingManager.addObject(loaderI);
+                        loaderI.load(
+                            scope.baseURL + fname,
+						    function(text) {
+                                params.fragmentShaderIncludes += text;
+                                scope.LoadingManager.onProgress(loaderI, 1);
+                            },
+                            function(xhr) {
+							    if (xhr.lengthComputable) {
+								    var percentComplete = xhr.loaded / xhr.total;
+								    scope.LoadingManager.onProgress(loaderI, percentComplete);
+							    }
+						    },
+						    function(xhr) {
+                                scope.LoadingManager.onError(xhr);
+                            }
+                        )
+                    }
+
+                    for (i in params.fragmentShaderIncludeFiles) {
+                        load_file(i);
+                    }
+                }
+
 				this.LoadingManager.setReady();
 			}
 			else {
@@ -882,7 +912,10 @@ define([
 
 			if(this.editorFragment != undefined)
 				this.currentMaterial.setValues( {
-					fragmentShader: this.editorFragment.getValue() });
+					fragmentShader: params.fragmentShaderIncludes +
+                        this.editorFragment.getValue()
+                }
+            );
 
             if(this.editorParams != undefined) {
                 try {
@@ -986,7 +1019,7 @@ define([
                 {
 				    // Subtracting from errors line numbers the lines of code included by three.js into the shader programs
 				    vertexLog   = this.adjustLineNumbers(vertexLog, Utils.countLines(this.currentMaterial.program.diagnostics.vertexShader.prefix));
-				    fragmentLog = this.adjustLineNumbers(fragmentLog, Utils.countLines(this.currentMaterial.program.diagnostics.fragmentShader.prefix));
+				    fragmentLog = this.adjustLineNumbers(fragmentLog, Utils.countLines(this.currentMaterial.program.diagnostics.fragmentShader.prefix) + Utils.countLines(params.fragmentShaderIncludes));
                 }
 
 				errorMessage = programLog + "<br/><br/>";
@@ -1220,7 +1253,8 @@ define([
 			if(this.shaderEditorEnabled) {
 				var material = new THREE.ShaderMaterial( {
 					uniforms: this.uniforms,
-					vertexShader: this.params.vertexShader, fragmentShader: this.params.fragmentShader,					
+					vertexShader: this.params.vertexShader,
+                    fragmentShader: this.params.fragmentShaderIncludes + this.params.fragmentShader,
 					extensions: {
 						derivatives: true,
 						shaderTextureLOD: true
